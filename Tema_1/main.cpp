@@ -102,7 +102,7 @@ int getFileSize(std::ifstream& f)
     return finish - start;
 }
 
-std::string encryptMessage(std::string& plaintext)
+std::string encryptMessage(std::string& plaintext, std::string key)
 {
     // Generate a random file name
     std::string filename = "encrypt_";
@@ -118,8 +118,15 @@ std::string encryptMessage(std::string& plaintext)
     fout.write(plaintext.c_str(), plaintext.size());
     fout.close();
 
+    // Write key to file
+    std::ofstream keyFout(filename + "_key", std::ios::binary);
+    // Key size should be 16
+    if (key.size() != 16) std::cout << "\nWarning key size is not 16\n\n\n";
+    keyFout.write(key.c_str(), key.size());
+    keyFout.close();
+
     // Apply encryption
-    system(std::string("openssl enc -aes128 -e -nosalt -in " + filename + " -out " + filename + "_out -kfile k_prime_key").c_str());
+    system(std::string("openssl enc -aes128 -e -nosalt -in " + filename + " -out " + filename + "_out -kfile " + filename + "_key").c_str());
 
     // Read encrypted message
     std::ifstream fin(filename + "_out", std::ios::binary);
@@ -130,13 +137,14 @@ std::string encryptMessage(std::string& plaintext)
 
     system(std::string("rm -rf " + filename).c_str());
     system(std::string("rm -rf " + filename + "_out").c_str());
+    system(std::string("rm -rf " + filename + "_key").c_str());
 
     // Convert encrypted message to string
     std::string * result = new std::string(bufferEncryptedMessage, size);
     return *result;
 }
 
-std::string decryptMessage(std::string& ciphertext)
+std::string decryptMessage(std::string& ciphertext, std::string key)
 {
     // Generate a random file name
     std::string filename = "decrypt_";
@@ -152,8 +160,15 @@ std::string decryptMessage(std::string& ciphertext)
     fout.write(ciphertext.c_str(), ciphertext.size());
     fout.close();
 
+    // Write key to file
+    std::ofstream keyFout(filename + "_key", std::ios::binary);
+    // Key size should be 16
+    if (key.size() != 16) std::cout << "\nWarning key size is not 16\n\n\n";
+    keyFout.write(key.c_str(), key.size());
+    keyFout.close();
+
     // Apply encryption
-    system(std::string("openssl enc -aes128 -d -nosalt -in " + filename + " -out " + filename + "_out -kfile k_prime_key").c_str());
+    system(std::string("openssl enc -aes128 -d -nosalt -in " + filename + " -out " + filename + "_out -kfile " + filename + "_key").c_str());
 
     // Read decrypted message
     std::ifstream fin(filename + "_out", std::ios::binary);
@@ -165,6 +180,7 @@ std::string decryptMessage(std::string& ciphertext)
 
     system(std::string("rm -rf " + filename).c_str());
     system(std::string("rm -rf " + filename + "_out").c_str());
+    system(std::string("rm -rf " + filename + "_key").c_str());
 
     // Convert decrypted message to string
     std::string * result = new std::string(bufferDecryptMessage, size);
@@ -260,7 +276,7 @@ int main()
                 std::string block = message.substr(i, 15);
                 std::cout << "Now sending block [" + block + "]...\n";
 
-                std::string encryptedBlock = encryptMessage(block);
+                std::string encryptedBlock = encryptMessage(block, decryptedKey);
                 // Encrypted block should have size 16 bytes
                 
                 write(aToB[1], encryptedBlock.c_str(), 16);
@@ -282,11 +298,7 @@ int main()
             for (int i = 0; i < message.size(); i += 15)
             {
                 // Encrypt the startBlock (iv/last ciphertext) with AES-128
-                std::string encryptedBlock = encryptMessage(startBlock);
-
-                // Xor it with the key K
-                for (int j = 0; j < encryptedBlock.size(); j++)
-                    encryptedBlock[j] = encryptedBlock[j] ^ KPrime::getSingleton()->get()[j];
+                std::string encryptedBlock = encryptMessage(startBlock, decryptedKey);
 
                 // Xor it with plaintext
 
@@ -357,7 +369,7 @@ int main()
             {
                 std::string encryptedMessage(message, 16);
 
-                std::string originalMessage = decryptMessage(encryptedMessage);
+                std::string originalMessage = decryptMessage(encryptedMessage, decryptedKey);
                 // Output the message to file
                 for (int i = 0; i < originalMessage.size(); i++)
                     if (originalMessage[i] != APPEND_CHAR)
