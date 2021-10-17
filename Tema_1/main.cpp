@@ -262,10 +262,6 @@ int main()
 
                 std::string encryptedBlock = encryptMessage(block);
                 // Encrypted block should have size 16 bytes
-
-                // Xor it with the key K
-                for (int j = 0; j < encryptedBlock.size(); j++)
-                    encryptedBlock[j] = encryptedBlock[j] ^ KPrime::getSingleton()->get()[j];
                 
                 write(aToB[1], encryptedBlock.c_str(), 16);
             }
@@ -273,12 +269,36 @@ int main()
         else
         {
             // Prep the initialization vector
-            std::vector<char> iv(16);
+            std::string iv;
+            iv.resize(15);
             char ivBuffer;
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 15; i++)
             {
                 getentropy(&ivBuffer, 1);
                 iv[i] = ivBuffer;
+            }
+
+            std::string startBlock = iv;
+            for (int i = 0; i < message.size(); i += 15)
+            {
+                // Encrypt the startBlock (iv/last ciphertext) with AES-128
+                std::string encryptedBlock = encryptMessage(startBlock);
+
+                // Xor it with the key K
+                for (int j = 0; j < encryptedBlock.size(); j++)
+                    encryptedBlock[j] = encryptedBlock[j] ^ KPrime::getSingleton()->get()[j];
+
+                // Xor it with plaintext
+
+
+                // Take each block into a new string
+                std::string block = message.substr(i, 15);
+                std::cout << "Now sending block [" + block + "]...\n";
+
+
+                
+                
+                write(aToB[1], encryptedBlock.c_str(), 16);
             }
         }
     }
@@ -335,9 +355,7 @@ int main()
 
             while (read(aToB[0], message, 16))
             {
-                std::string encryptedMessage;
-                for (int i = 0; i < 16; i++)
-                    encryptedMessage += message[i] ^ KPrime::getSingleton()->get()[i];
+                std::string encryptedMessage(message, 16);
 
                 std::string originalMessage = decryptMessage(encryptedMessage);
                 // Output the message to file
@@ -350,15 +368,8 @@ int main()
         }
         else
         {
-            // Prep the initialization vector
-            std::vector<char> iv(16);
-            char ivBuffer;
-            for (int i = 0; i < 16; i++)
-            {
-                getentropy(&ivBuffer, 1);
-                iv[i] = ivBuffer;
-            }
-
+            
+            
 
         }
         
