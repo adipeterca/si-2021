@@ -287,11 +287,9 @@ int main()
             // Prep the initialization vector
             std::string iv;
             iv.resize(15);
-            char ivBuffer;
             for (int i = 0; i < 15; i++)
             {
-                getentropy(&ivBuffer, 1);
-                iv[i] = ivBuffer;
+                iv[i] = i + 'a';
             }
 
             std::string startBlock = iv;
@@ -300,15 +298,15 @@ int main()
                 // Encrypt the startBlock (iv/last ciphertext) with AES-128
                 std::string encryptedBlock = encryptMessage(startBlock, decryptedKey);
 
-                // Xor it with plaintext
-
-
                 // Take each block into a new string
                 std::string block = message.substr(i, 15);
                 std::cout << "Now sending block [" + block + "]...\n";
 
-
+                // Xor it with plaintext
+                for (int j = 0; j < encryptedBlock.size(); j++)
+                    encryptedBlock[j] = encryptedBlock[j] ^ block[j];
                 
+                startBlock = encryptedBlock.substr(0, 15);
                 
                 write(aToB[1], encryptedBlock.c_str(), 16);
             }
@@ -364,7 +362,6 @@ int main()
 
         if (operationType == "ecb")
         {
-
             while (read(aToB[0], message, 16))
             {
                 std::string encryptedMessage(message, 16);
@@ -380,9 +377,39 @@ int main()
         }
         else
         {
-            
-            
+            // Prep the initialization vector
+            std::string iv;
+            iv.resize(15);
+            for (int i = 0; i < 15; i++)
+            {
+                iv[i] = i + 'a';
+            }
 
+            std::string startBlock = iv;
+            while (read(aToB[0], message, 16))
+            {
+                // The block received from A
+                std::string receivedBlock(message, 16);
+
+                std::string encryptedBlock = encryptMessage(startBlock, decryptedKey);
+
+                // std::cout << "[B] received: " << receivedBlock.size() << std::endl;
+                // std::cout << "[B] encrypted: " << encryptedBlock.size() << std::endl;
+
+                startBlock = receivedBlock.substr(0, 15);
+
+                // Xor the encrypted block with the received message (ciphertext)
+                // and obtain the plaintext
+                for (int i = 0; i < receivedBlock.size(); i++)
+                    receivedBlock[i] = receivedBlock[i] ^ encryptedBlock[i];
+                
+                // Output the message to file (difference because of library restrictions)
+                for (int i = 0; i < receivedBlock.size() - 1; i++)
+                    if (receivedBlock[i] != APPEND_CHAR)
+                        outputFout << receivedBlock[i];
+                    else
+                        break;
+            }
         }
         
     }
